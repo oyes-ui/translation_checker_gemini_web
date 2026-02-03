@@ -12,18 +12,19 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.OYES_GITHUB }}
         run: |
-          # 1. 문제가 되는 폴더를 아예 삭제
+          # 1. 문제 폴더 삭제
           rm -rf Mac_ui.app
           
-          # 2. Git 설정 초기화 (과거 기록을 모두 날림)
+          # 2. Git 초기화 및 설정
           rm -rf .git
           git init
           git config user.email "oyes-ui@users.noreply.github.com"
           git config user.name "oyes-ui"
           
-          # 3. 현재의 깨끗한 파일들만 추가
+          # 3. 현재 파일을 'main' 브랜치 이름으로 추가
+          git checkout -b main
           git add .
-          git commit -m "Initial clean deploy"
+          git commit -m "Final clean deploy for Antigravity"
           
-          # 4. 새 역사를 Hugging Face로 강제 전송
+          # 4. Hugging Face로 강제 푸시
           git push --force https://x-token:$HF_TOKEN@huggingface.co/spaces/oyes-ui/translation_checker_gemini_web main
