@@ -2,8 +2,6 @@ name: Sync to Hugging Face hub
 on:
   push:
     branches: [main]
-  force_push:
-    branches: [main]
 
 jobs:
   deploy:
@@ -16,5 +14,5 @@ jobs:
       - name: Push to hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        # 주소 부분을 더 안전한 형식으로 수정했습니다.
+        # 사용자명(oyes-ui)과 Space 이름이 정확한지 다시 한번 확인해주세요!
         run: git push --force https://oyes-ui:$HF_TOKEN@huggingface.co/spaces/oyes-ui/translation_checker_gemini_web main
