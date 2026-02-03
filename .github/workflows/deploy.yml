@@ -13,6 +13,7 @@ jobs:
           lfs: true
       - name: Push to hub
         env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        # 주소에서 oyes-ui: 부분을 빼고 토큰만으로 인증을 시도합니다.
-        run: git push --force https://x-token:$OYES_GITHUB@huggingface.co/spaces/oyes-ui/translation_checker_gemini_web main
+          # 금고 이름(OYES_GITHUB)을 정확히 일치시켰습니다.
+          HF_TOKEN: ${{ secrets.OYES_GITHUB }}
+        # x-token 키워드를 사용하여 Hugging Face 인증 방식을 명확히 전달합니다.
+        run: git push --force https://x-token:$HF_TOKEN@huggingface.co/spaces/oyes-ui/translation_checker_gemini_web main
