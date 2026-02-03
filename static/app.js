@@ -257,6 +257,7 @@ function connectSSE(taskId) {
 
             // Setup Download
             downloadLink.href = `${window.location.origin}${data.download_url}`;
+            downloadLink.setAttribute('download', `translation_review_${taskId}.txt`);
             downloadArea.classList.remove('hidden');
         } else if (data.type === 'error') {
             evtSource.close();
