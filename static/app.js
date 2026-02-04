@@ -216,7 +216,8 @@ startBtn.addEventListener('click', async () => {
             sheet_langs: sheetConfig,
             glossary_file_id: uploadedGlossaryId,
             cell_range: document.getElementById('cellRange').value || "C7:C28",
-            model_name: document.getElementById('modelSelect').value
+            model_name: document.getElementById('modelSelect').value,
+            source_lang: document.getElementById('sourceLangSelect').value
         };
 
         const res = await fetch(`${API_BASE}/start`, {

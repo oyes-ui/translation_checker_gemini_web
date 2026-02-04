@@ -181,11 +181,12 @@ async def upload_files(
 
 class GlossaryCheckRequest(BaseModel):
     url: str
+    source_lang: str = "English"
 
 @app.post("/api/check_glossary")
 async def check_glossary(req: GlossaryCheckRequest):
     checker = TranslationChecker(max_concurrency=1)
-    msg = await checker.load_glossary_from_url(req.url, "en_US")
+    msg = await checker.load_glossary_from_url(req.url, req.source_lang)
     # msg format is "Glossary loaded: N entries." or "Glossary load failed: ..."
     if "failed" in msg.lower():
         raise HTTPException(status_code=400, detail=msg)
