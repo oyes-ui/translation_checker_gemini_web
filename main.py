@@ -240,7 +240,7 @@ async def download_result(task_id: str):
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # 2. 접속 시 첫 화면(index.html) 보내주기
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def read_index():
     return FileResponse(os.path.join(static_dir, 'index.html'))
 
