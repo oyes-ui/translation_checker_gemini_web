@@ -236,13 +236,20 @@ async def download_result(task_id: str):
         media_type="application/octet-stream"
     )
 
+# 1. 현재 main.py 파일이 있는 실제 경로를 계산합니다.
+current_dir = os.path.dirname(os.path.abspath(__file__))
+static_dir = os.path.join(current_dir, "static")
+
 # 1. 'static' 폴더를 웹에 연결
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # 2. 접속 시 첫 화면(index.html) 보내주기
 @app.api_route("/", methods=["GET", "HEAD"])
 async def read_index():
-    return FileResponse(os.path.join(static_dir, 'index.html'))
+    index_path = os.path.join(static_dir, 'index.html')
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"error": "index.html not found in static folder"}
 
 # 3. 브라우저 favicon.ico 404 에러 방지
 @app.get("/favicon.ico", include_in_schema=False)
