@@ -237,12 +237,12 @@ async def download_result(task_id: str):
     )
 
 # 1. 'static' 폴더를 웹에 연결
-app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # 2. 접속 시 첫 화면(index.html) 보내주기
 @app.get("/")
 async def read_index():
-    return FileResponse('static/index.html')
+    return FileResponse(os.path.join(static_dir, 'index.html'))
 
 # 3. 브라우저 favicon.ico 404 에러 방지
 @app.get("/favicon.ico", include_in_schema=False)
