@@ -45,24 +45,30 @@
                         <label>AI Model Selection</label>
                         <select id="modelSelect" class="styled-select">
                             <optgroup label="Gemini 2.5 Series">
-                                <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro</option>
-                                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                                <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash</option>
+                                <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
                             </optgroup>
                             <optgroup label="Gemini 2.0 Series">
                                 <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                                <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
                             </optgroup>
                             <optgroup label="Gemini 3.0 Series">
                                 <option value="gemini-3-pro-preview">Gemini 3.0 Pro Preview</option>
                                 <option value="gemini-3-flash-preview">Gemini 3.0 Flash Preview</option>
                             </optgroup>
-                            <optgroup label="Other Models">
-                                <option value="gpt-4o" disabled>GPT-4o (Coming Soon)</option>
-                                <option value="gpt-4-turbo" disabled>GPT-4 Turbo (Coming Soon)</option>
+                            <optgroup label="GPT Models">
+                                <option value="gpt-5-pro">GPT-5 Pro</option>
+                                <option value="gpt-5">GPT-5</option>
+                                <option value="gpt-5-mini">GPT-5 Mini</option>
+                                <option value="gpt-4.1">GPT-4.1</option>
+                                <option value="gpt-4o">GPT-4o</option>
+                                <option value="gpt-4o-mini">GPT-4o Mini</option>
                             </optgroup>
                         </select>
                     </div>
 
-                    <div class="config-item">
+                    <div class="config-item hidden">
                         <label>Source Language</label>
                         <select id="sourceLangSelect" class="styled-select">
                             <option value="English" selected>English</option>
@@ -136,30 +142,35 @@
                 </div>
                 <div class="panel-body">
 
-                    <div class="dropzone-container">
-                        <div class="dropzone" id="sourceDropzone">
-                            <div class="icon">📂</div>
-                            <p>Drag & Drop <strong>Source Excel</strong></p>
+                    <div class="main-dropzone-container">
+                        <div class="dropzone premium-dropzone" id="sourceDropzone">
+                            <div class="glass-overlay"></div>
+                            <div class="icon-orb">✨</div>
+                            <div class="dropzone-text">
+                                <h3>Upload Workbook</h3>
+                                <p>Drag & Drop your <strong>Source Excel (.xlsx)</strong></p>
+                                <span class="sub-text">하나의 엑셀 파일에서 출발언어 시트와 도착언어 시트를 선택하여 검수합니다.</span>
+                            </div>
                             <input type="file" id="sourceInput" accept=".xlsx" hidden>
                             <div class="file-info" id="sourceInfo"></div>
-                        </div>
-                        <div class="arrow">→</div>
-                        <div class="dropzone" id="targetDropzone">
-                            <div class="icon">🎯</div>
-                            <p>Drag & Drop <strong>Target Excel</strong></p>
-                            <input type="file" id="targetInput" accept=".xlsx" hidden>
-                            <div class="file-info" id="targetInfo"></div>
                         </div>
                     </div>
 
                     <div id="sheetSelectionArea" class="hidden">
                         <div class="sheet-selection-header">
-                            <h3>Select Sheets to Inspect</h3>
+                            <h3>Sheet Mapping (Select Source & Targets)</h3>
                             <div class="sheet-controls">
-                                <button type="button" id="selectAllSheets" class="text-btn">Select All</button>
+                                <button type="button" id="selectAllSheets" class="text-btn">Select All Targets</button>
                                 <span class="sep">|</span>
-                                <button type="button" id="deselectAllSheets" class="text-btn">Deselect All</button>
+                                <button type="button" id="deselectAllSheets" class="text-btn">Deselect All
+                                    Targets</button>
                             </div>
+                        </div>
+                        <div class="sheet-list-header">
+                            <span class="header-col src">Source</span>
+                            <span class="header-col tgt">Target</span>
+                            <span class="header-col name">Sheet Name</span>
+                            <span class="header-col lang">Language Info</span>
                         </div>
                         <div class="sheet-list" id="sheetList">
                             <!-- Checkboxes injected here -->

@@ -6,7 +6,6 @@ Refactored for Web API usage (FastAPI + SSE)
 
 import openpyxl
 import os
-import google.generativeai as genai
 from datetime import datetime
 from dotenv import load_dotenv
 import asyncio
@@ -15,6 +14,7 @@ import re
 import pandas as pd
 import io
 import urllib.parse
+from model_handler import ModelHandler
 
 # API Key from Environment
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -44,22 +44,8 @@ class TranslationChecker:
         skip_llm_when_glossary_mismatch: bool = False,
         no_backtranslation: bool = False
     ):
-        if not GEMINI_API_KEY:
-            raise ValueError("API Key is missing.")
-
-        # API Setup
-        genai.configure(api_key=GEMINI_API_KEY)
         self.model_name = model_name
-        
-        # In the future, we can add provider detection logic here
-        # For now, we assume all models are Gemini models
-        self.provider = "google" 
-        if "gpt" in model_name.lower():
-            self.provider = "openai"
-            # OpenAI initialization would go here
-            
-        if self.provider == "google":
-            self.qa_model = genai.GenerativeModel(self.model_name)
+        self.model_handler = ModelHandler()
         
         self.no_backtranslation = no_backtranslation
         
@@ -249,7 +235,7 @@ class TranslationChecker:
     def load_excel_files(self, source_path, target_path, selected_sheets=None):
         pass
 
-    def load_excel_data(self, source_path, target_path, cell_range="A:Z", selected_sheets=None, log_func=None):
+    def load_excel_data(self, source_path, target_path, cell_range="A:Z", selected_sheets=None, log_func=None, source_sheet_name=None):
         all_data = []
         if log_func: log_func(f"데이터 추출 범위: {cell_range}")
         try:
@@ -275,7 +261,14 @@ class TranslationChecker:
         processed_sheets = []
 
         for sheet_name in target_sheets:
-            ws_source = wb_source[sheet_name]
+            # Determine source sheet for this item
+            src_sheet = source_sheet_name if source_sheet_name else sheet_name
+            
+            if src_sheet not in wb_source.sheetnames or sheet_name not in wb_target.sheetnames:
+                if log_func: log_func(f"⚠ [{sheet_name}] 시트가 원본 파일({src_sheet}) 또는 대상 파일에 없습니다. 건너뜁니다.")
+                continue
+            
+            ws_source = wb_source[src_sheet]
             ws_target = wb_target[sheet_name]
             
             extracted_count = 0
@@ -442,14 +435,13 @@ class TranslationChecker:
 "최종 평가: 우수, 주요 문제 없음."
 """
         try:
-            response = await self.qa_model.generate_content_async(
+            response = await self.model_handler.generate_content(
                 prompt,
-                generation_config={"temperature": 0.2},
-                request_options={"timeout": 90}
+                model_name=self.model_name
             )
-            return response.text.strip() if response.text else "[응답 비어있음]"
+            return response if response else "[응답 비어있음]"
         except Exception as e:
-            return f"[Gemini QA 오류]: {e}"
+            return f"[QA 모델 오류]: {e}"
 
     async def get_back_translation(self, target_text, target_lang, source_lang):
         prompt = (
@@ -457,14 +449,13 @@ class TranslationChecker:
             f"오직 번역된 텍스트만 제공해야 합니다. 다른 설명이나 텍스트는 포함하지 마세요.\n\n{target_text}"
         )
         try:
-            response = await self.qa_model.generate_content_async(
+            response = await self.model_handler.generate_content(
                 prompt,
-                generation_config={"temperature": 0.1},
-                request_options={"timeout": 90}
+                model_name=self.model_name
             )
-            return response.text.strip() if response.text else "[응답 비어있음]"
+            return response if response else "[응답 비어있음]"
         except Exception as e:
-            return f"[Gemini 역번역 오류]: {e}"
+            return f"[역번역 모델 오류]: {e}"
 
     # ----------------- Process Single Item -----------------
     async def process_item(self, item, source_lang, default_target_lang, sheet_lang_map, default_target_lang_code):
@@ -510,19 +501,19 @@ class TranslationChecker:
             "case_section": case_section,
             "glossary_section": glossary_section,
             "back_translation": "",
-            "gemini_review": ""
+            "ai_review": ""
         }
 
         # Skip Logic
         if is_placeholder and not pre_mismatch:
             res["back_translation"] = "[건너뜀: 짧은/무의미]"
-            res["gemini_review"] = "[건너뜀: 짧은/무의미]"
+            res["ai_review"] = "[건너뜀: 짧은/무의미]"
             return res
 
         # LLM Logic
         if skip_llm:
             res["back_translation"] = "[사전 감지로 LLM 호출 생략]"
-            res["gemini_review"] = "※ 용어집 사전 감지 결과를 우선 검토하세요."
+            res["ai_review"] = "※ 용어집 사전 감지 결과를 우선 검토하세요."
         else:
              # LLM Calls
             qa_task = self._with_semaphore(
@@ -530,14 +521,14 @@ class TranslationChecker:
             )
             
             if self.no_backtranslation:
-                res["gemini_review"] = await qa_task
+                res["ai_review"] = await qa_task
                 res["back_translation"] = "[역번역 비활성화됨]"
             else:
                 bt_task = self._with_semaphore(
                     self.get_back_translation(target, tgt_lang, source_lang)
                 )
                 review, bt = await asyncio.gather(qa_task, bt_task)
-                res["gemini_review"] = review
+                res["ai_review"] = review
                 res["back_translation"] = bt
         
         return res
@@ -554,7 +545,8 @@ class TranslationChecker:
         sheet_lang_map,
         glossary_url=None,
         selected_sheets=None,
-        glossary_file_path=None
+        glossary_file_path=None,
+        source_sheet_name=None
     ):
         """
         Yields events:
@@ -564,6 +556,12 @@ class TranslationChecker:
         {"type": "complete", "total": m, "output_data": all_text}
         """
         yield {"type": "log", "message": "용어집 로드 시작..."}
+        
+        # If source_sheet_name is provided, use it to infer source_lang
+        if source_sheet_name and sheet_lang_map:
+            source_info = sheet_lang_map.get(source_sheet_name)
+            if source_info:
+                source_lang = source_info.get('lang', source_lang)
         
         # Load Glossary
         if glossary_file_path:
@@ -584,7 +582,7 @@ class TranslationChecker:
             def collect_log(m): log_messages.append(m)
 
             all_data, processed_sheets = self.load_excel_data(
-                source_file_path, target_file_path, cell_range=cell_range, selected_sheets=sel_sheets, log_func=collect_log
+                source_file_path, target_file_path, cell_range=cell_range, selected_sheets=sel_sheets, log_func=collect_log, source_sheet_name=source_sheet_name
             )
             for m in log_messages:
                 yield {"type": "log", "message": m}
@@ -631,7 +629,7 @@ class TranslationChecker:
                     f"[상세 - 대소문자 점검]\n{res['case_section']}\n\n"
                     f"[상세 - 용어집 점검]\n{res['glossary_section']}\n\n"
                     f"[상세 - 역번역]\n{res['back_translation']}\n\n"
-                    f"[상세 - Gemini 검수 결과]\n{res['gemini_review']}\n"
+                    f"[상세 - AI 검수 결과]\n{res['ai_review']}\n"
                     f"{'='*90}\n"
                 )
                 
@@ -653,7 +651,7 @@ class TranslationChecker:
         # Final Header/Footer assembly using ORDERED results
         final_text = []
         header = (
-            f"--- 번역 검수 보고서 (Gemini 2.0-flash / Web App) ---\n"
+            f"--- 번역 검수 보고서 ({self.model_name} / Web App) ---\n"
             f"생성일시: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
             f"총 검수 항목: {total_items}개\n"
             f"용어집 항목: {len(self.glossary)}\n\n"

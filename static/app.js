@@ -2,15 +2,12 @@ const API_BASE = window.location.origin + "/api";
 
 // State
 let sourceFile = null;
-let targetFile = null;
-let uploadedFileIds = { source: null, target: null };
+let uploadedFileIds = { source: null };
 let selectedSheets = [];
 
 // DOM Elements
 const sourceDropzone = document.getElementById('sourceDropzone');
-const targetDropzone = document.getElementById('targetDropzone');
 const sourceInput = document.getElementById('sourceInput');
-const targetInput = document.getElementById('targetInput');
 const startBtn = document.getElementById('startBtn');
 const sheetList = document.getElementById('sheetList');
 const terminal = document.getElementById('terminal');
@@ -87,7 +84,6 @@ function handleFile(file, type, zone) {
 }
 
 setupDropzone(sourceDropzone, sourceInput, 'source');
-setupDropzone(targetDropzone, targetInput, 'target');
 setupDropzone(glossaryDropzone, glossaryInput, 'glossary');
 
 async function uploadSingleFile(type, file, zone) {
@@ -124,8 +120,6 @@ async function uploadSingleFile(type, file, zone) {
             } else {
                 log("No sheets found in Source file. Ensure the Excel file contains readable data.", "error");
             }
-        } else if (type === 'target') {
-            uploadedFileIds.target = data.target_file_id;
         } else if (type === 'glossary') {
             uploadedGlossaryId = data.glossary_file_id;
         }
@@ -141,14 +135,33 @@ async function uploadSingleFile(type, file, zone) {
 
 function renderSheetList(sheets) {
     sheetList.innerHTML = '';
-    sheets.forEach(sheet => {
+
+    // Get mapping from editor
+    const configStr = document.getElementById('sheetConfig').value;
+    let sheetConfig = {};
+    try { sheetConfig = JSON.parse(configStr); } catch (e) { }
+
+    sheets.forEach((sheet, index) => {
         const div = document.createElement('div');
         div.className = 'sheet-item';
+
+        const info = sheetConfig[sheet] || { lang: 'Unknown', code: '?' };
+        const isDefaultSource = sheet === "KR(한국)" || index === 0;
+
         div.innerHTML = `
-            <label>
-                <input type="checkbox" value="${sheet}" checked>
+            <div class="item-col src">
+                <input type="radio" name="sourceSheet" value="${sheet}" ${isDefaultSource ? 'checked' : ''}>
+            </div>
+            <div class="item-col tgt">
+                <input type="checkbox" class="target-check" value="${sheet}" ${!isDefaultSource ? 'checked' : ''}>
+            </div>
+            <div class="item-col name">
                 <span>${sheet}</span>
-            </label>
+            </div>
+            <div class="item-col lang">
+                <span class="lang-info-tag">${info.lang}</span>
+                <span class="code-info">${info.code}</span>
+            </div>
         `;
         sheetList.appendChild(div);
     });
@@ -158,17 +171,17 @@ function renderSheetList(sheets) {
 
 // Select/Deselect All Buttons
 document.getElementById('selectAllSheets')?.addEventListener('click', () => {
-    sheetList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
-    log("All sheets selected.", "info");
+    sheetList.querySelectorAll('.target-check').forEach(cb => cb.checked = true);
+    log("All target sheets selected.", "info");
 });
 
 document.getElementById('deselectAllSheets')?.addEventListener('click', () => {
-    sheetList.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
-    log("All sheets deselected.", "info");
+    sheetList.querySelectorAll('.target-check').forEach(cb => cb.checked = false);
+    log("All target sheets deselected.", "info");
 });
 
 function checkStartReadiness() {
-    if (uploadedFileIds.source && uploadedFileIds.target) {
+    if (uploadedFileIds.source) {
         startBtn.disabled = false;
         log("Ready to start inspection.", "info");
     } else {
@@ -192,11 +205,16 @@ startBtn.addEventListener('click', async () => {
     }
 
     // Collect Sheets
-    const checked = Array.from(sheetList.querySelectorAll('input[type="checkbox"]:checked'))
+    const sourceSheet = sheetList.querySelector('input[name="sourceSheet"]:checked')?.value;
+    const targetSheets = Array.from(sheetList.querySelectorAll('.target-check:checked'))
         .map(cb => cb.value);
 
-    if (checked.length === 0) {
-        log("Please select at least one sheet.", "error");
+    if (!sourceSheet) {
+        log("Please select a source sheet.", "error");
+        return;
+    }
+    if (targetSheets.length === 0) {
+        log("Please select at least one target sheet.", "error");
         return;
     }
 
@@ -211,8 +229,8 @@ startBtn.addEventListener('click', async () => {
     try {
         const payload = {
             source_file_id: uploadedFileIds.source,
-            target_file_id: uploadedFileIds.target,
-            sheets: checked,
+            source_sheet: sourceSheet,
+            sheets: targetSheets,
             sheet_langs: sheetConfig,
             glossary_file_id: uploadedGlossaryId,
             cell_range: document.getElementById('cellRange').value || "C7:C28",
@@ -261,8 +279,8 @@ function connectSSE(taskId) {
             const downloadUrl = `${window.location.origin}${data.download_url}`;
             const fileName = `translation_review_${taskId}.txt`;
 
-            downloadLink.onclick = async (e) => {
-                e.preventDefault();
+            downloadLink.onclick = async (event) => {
+                event.preventDefault();
                 log("Downloading report...", "system");
                 try {
                     const res = await fetch(downloadUrl);

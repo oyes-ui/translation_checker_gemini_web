@@ -42,8 +42,9 @@ TASK_STORE = {}
 
 class StartRequest(BaseModel):
     source_file_id: str
-    target_file_id: str
+    target_file_id: str = None
     glossary_file_id: str = None
+    source_sheet: str = None
     sheets: list[str] = None
     sheet_langs: dict = {} # {"Sheet1": {"lang": "Korean", "code": "ko_KR"}}
     glossary_url: str = "https://docs.google.com/spreadsheets/d/1kVEdSTqZcFHLK8tK6IsF3Jb5ks-42RQgDimZ-rziKxU/gviz/tq?tqx=out:csv&sheet=용어집%20DB"
@@ -65,7 +66,7 @@ async def background_inspection_task(task_id, params):
         )
         
         source_path = os.path.join(UPLOAD_DIR, params.source_file_id)
-        target_path = os.path.join(UPLOAD_DIR, params.target_file_id)
+        target_path = os.path.join(UPLOAD_DIR, params.target_file_id) if params.target_file_id else source_path
         
         glossary_path = None
         if params.glossary_file_id:
@@ -82,7 +83,8 @@ async def background_inspection_task(task_id, params):
             sheet_lang_map=params.sheet_langs,
             glossary_url=params.glossary_url,
             glossary_file_path=glossary_path,
-            selected_sheets=params.sheets
+            selected_sheets=params.sheets,
+            source_sheet_name=params.source_sheet
         )
         
         async for event in gen:
