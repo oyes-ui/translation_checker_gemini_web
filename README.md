@@ -5,6 +5,7 @@ colorFrom: "blue"
 colorTo: "indigo"
 sdk: "docker"
 pinned: false
+app_port: 7860
 ---
 
 # 🔍 안티그래비티 번역 검수 웹앱
